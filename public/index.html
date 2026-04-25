@@ -1,0 +1,721 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ClipDrop — File Clipboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@400;500;600;700&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0c0c0f;
+      --surface: #141418;
+      --surface2: #1c1c22;
+      --border: rgba(255,255,255,0.08);
+      --border-hover: rgba(255,255,255,0.18);
+      --text: #f0eff5;
+      --muted: rgba(240,239,245,0.45);
+      --subtle: rgba(240,239,245,0.2);
+      --accent: #8b5cf6;
+      --accent-glow: rgba(139,92,246,0.25);
+      --accent-dim: rgba(139,92,246,0.12);
+      --green: #34d399;
+      --green-dim: rgba(52,211,153,0.12);
+      --red: #f87171;
+      --red-dim: rgba(248,113,113,0.12);
+      --mono: 'DM Mono', monospace;
+      --sans: 'DM Sans', sans-serif;
+      --display: 'Syne', sans-serif;
+    }
+
+    html, body {
+      min-height: 100vh;
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--sans);
+      font-weight: 400;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* Background grid */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(139,92,246,0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(139,92,246,0.03) 1px, transparent 1px);
+      background-size: 40px 40px;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .page {
+      position: relative;
+      z-index: 1;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 3rem 1.5rem 4rem;
+    }
+
+    /* Header */
+    header {
+      text-align: center;
+      margin-bottom: 3rem;
+    }
+    .logo {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 1rem;
+    }
+    .logo-icon {
+      width: 36px;
+      height: 36px;
+      background: var(--accent-dim);
+      border: 1px solid rgba(139,92,246,0.3);
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .logo-icon svg { width: 18px; height: 18px; }
+    .logo-text {
+      font-family: var(--display);
+      font-size: 22px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+    }
+    .logo-text span { color: var(--accent); }
+    header p {
+      font-size: 14px;
+      color: var(--muted);
+      max-width: 320px;
+      margin: 0 auto;
+      line-height: 1.6;
+    }
+
+    /* Card */
+    .card {
+      width: 100%;
+      max-width: 520px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      overflow: hidden;
+    }
+
+    /* Tabs */
+    .tabs {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      border-bottom: 1px solid var(--border);
+    }
+    .tab {
+      padding: 16px;
+      font-family: var(--display);
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--muted);
+      background: none;
+      border: none;
+      cursor: pointer;
+      transition: color 0.2s, background 0.2s;
+      position: relative;
+      letter-spacing: 0.01em;
+    }
+    .tab.active {
+      color: var(--text);
+      background: var(--surface2);
+    }
+    .tab.active::after {
+      content: '';
+      position: absolute;
+      bottom: -1px;
+      left: 20%;
+      right: 20%;
+      height: 2px;
+      background: var(--accent);
+      border-radius: 2px 2px 0 0;
+    }
+
+    /* Panels */
+    .panel { display: none; padding: 2rem; }
+    .panel.active { display: block; }
+
+    /* Drop zone */
+    .drop-zone {
+      border: 1.5px dashed var(--border-hover);
+      border-radius: 14px;
+      padding: 2.5rem 1.5rem;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.2s;
+      background: transparent;
+      position: relative;
+      overflow: hidden;
+    }
+    .drop-zone:hover, .drop-zone.over {
+      border-color: var(--accent);
+      background: var(--accent-dim);
+    }
+    .drop-zone.over::after {
+      content: 'Drop it!';
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: var(--display);
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--accent);
+      background: var(--accent-dim);
+    }
+    .drop-icon {
+      width: 48px;
+      height: 48px;
+      margin: 0 auto 14px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .drop-icon svg { width: 22px; height: 22px; color: var(--muted); }
+    .drop-label {
+      font-family: var(--display);
+      font-size: 15px;
+      font-weight: 500;
+      color: var(--text);
+      margin-bottom: 6px;
+    }
+    .drop-sub { font-size: 12px; color: var(--muted); }
+    input[type="file"] { display: none; }
+
+    /* File pill */
+    .file-pill {
+      display: none;
+      align-items: center;
+      gap: 10px;
+      margin-top: 14px;
+      padding: 10px 14px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      font-size: 13px;
+    }
+    .file-pill.show { display: flex; }
+    .file-pill-icon {
+      width: 28px;
+      height: 28px;
+      background: var(--accent-dim);
+      border-radius: 7px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+    .file-pill-icon svg { width: 14px; height: 14px; color: var(--accent); }
+    .file-pill-name { font-weight: 500; color: var(--text); flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .file-pill-size { color: var(--muted); flex-shrink: 0; }
+
+    /* Progress bar */
+    .progress-wrap { display: none; margin-top: 14px; }
+    .progress-wrap.show { display: block; }
+    .progress-bar-bg { height: 4px; background: var(--surface2); border-radius: 4px; overflow: hidden; }
+    .progress-bar-fill { height: 100%; background: linear-gradient(90deg, var(--accent), #a78bfa); border-radius: 4px; width: 0%; transition: width 0.2s; }
+    .progress-label { font-size: 11px; color: var(--muted); margin-top: 6px; }
+
+    /* Button */
+    .btn {
+      width: 100%;
+      margin-top: 16px;
+      padding: 13px;
+      font-family: var(--display);
+      font-size: 14px;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+      border: 1px solid var(--border);
+      border-radius: 11px;
+      background: var(--surface2);
+      color: var(--text);
+      cursor: pointer;
+      transition: all 0.15s;
+      position: relative;
+      overflow: hidden;
+    }
+    .btn:hover:not(:disabled) {
+      border-color: var(--accent);
+      background: var(--accent-dim);
+      color: var(--text);
+    }
+    .btn.primary {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #fff;
+    }
+    .btn.primary:hover:not(:disabled) {
+      background: #7c3aed;
+      border-color: #7c3aed;
+    }
+    .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    /* OTP Display */
+    .otp-result { display: none; margin-top: 20px; }
+    .otp-result.show { display: block; }
+    .otp-result-inner {
+      background: var(--surface2);
+      border: 1px solid rgba(139,92,246,0.2);
+      border-radius: 14px;
+      padding: 1.5rem;
+      text-align: center;
+      position: relative;
+      overflow: hidden;
+    }
+    .otp-result-inner::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 50%; transform: translateX(-50%);
+      width: 120px; height: 1px;
+      background: linear-gradient(90deg, transparent, var(--accent), transparent);
+    }
+    .otp-title {
+      font-size: 11px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 16px;
+    }
+    .otp-code {
+      display: flex;
+      justify-content: center;
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+    .otp-digit-box {
+      width: 58px;
+      height: 72px;
+      background: var(--bg);
+      border: 1px solid rgba(139,92,246,0.3);
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: var(--mono);
+      font-size: 32px;
+      font-weight: 500;
+      color: var(--accent);
+      animation: popIn 0.3s ease forwards;
+    }
+    .otp-digit-box:nth-child(1) { animation-delay: 0s; }
+    .otp-digit-box:nth-child(2) { animation-delay: 0.05s; }
+    .otp-digit-box:nth-child(3) { animation-delay: 0.1s; }
+    .otp-digit-box:nth-child(4) { animation-delay: 0.15s; }
+    @keyframes popIn {
+      0% { transform: scale(0.8) translateY(8px); opacity: 0; }
+      100% { transform: scale(1) translateY(0); opacity: 1; }
+    }
+    .otp-expiry { font-size: 12px; color: var(--muted); }
+    .otp-expiry strong { color: var(--green); font-weight: 500; }
+    .copy-btn {
+      margin-top: 12px;
+      padding: 8px 18px;
+      font-size: 12px;
+      font-family: var(--display);
+      font-weight: 500;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: transparent;
+      color: var(--muted);
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .copy-btn:hover { color: var(--text); border-color: var(--border-hover); }
+
+    /* Retrieve panel */
+    .retrieve-label {
+      font-size: 13px;
+      color: var(--muted);
+      margin-bottom: 16px;
+      line-height: 1.6;
+    }
+    .otp-inputs {
+      display: flex;
+      gap: 10px;
+      justify-content: center;
+      margin-bottom: 6px;
+    }
+    .otp-input {
+      width: 64px;
+      height: 72px;
+      text-align: center;
+      font-family: var(--mono);
+      font-size: 30px;
+      font-weight: 500;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      color: var(--text);
+      outline: none;
+      transition: border-color 0.15s, box-shadow 0.15s;
+      caret-color: var(--accent);
+    }
+    .otp-input:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px var(--accent-glow);
+    }
+
+    /* Result file card */
+    .result-file {
+      display: none;
+      margin-top: 16px;
+      padding: 14px 16px;
+      background: var(--green-dim);
+      border: 1px solid rgba(52,211,153,0.2);
+      border-radius: 12px;
+      align-items: center;
+      gap: 12px;
+    }
+    .result-file.show { display: flex; }
+    .result-file-icon {
+      width: 36px; height: 36px;
+      background: rgba(52,211,153,0.15);
+      border-radius: 9px;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
+    .result-file-icon svg { width: 18px; height: 18px; color: var(--green); }
+    .result-file-info { flex: 1; min-width: 0; }
+    .result-file-name { font-size: 13px; font-weight: 500; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .result-file-size { font-size: 12px; color: var(--muted); margin-top: 2px; }
+    .dl-btn {
+      padding: 8px 16px;
+      font-size: 13px;
+      font-family: var(--display);
+      font-weight: 600;
+      border: 1px solid rgba(52,211,153,0.3);
+      border-radius: 9px;
+      background: rgba(52,211,153,0.12);
+      color: var(--green);
+      cursor: pointer;
+      flex-shrink: 0;
+      transition: all 0.15s;
+    }
+    .dl-btn:hover { background: rgba(52,211,153,0.2); }
+
+    /* Messages */
+    .msg {
+      margin-top: 12px;
+      padding: 10px 14px;
+      border-radius: 10px;
+      font-size: 13px;
+      line-height: 1.5;
+    }
+    .msg.error { background: var(--red-dim); color: var(--red); border: 1px solid rgba(248,113,113,0.2); }
+    .msg.success { background: var(--green-dim); color: var(--green); border: 1px solid rgba(52,211,153,0.2); }
+    .msg.info { background: var(--accent-dim); color: #c4b5fd; border: 1px solid rgba(139,92,246,0.2); }
+
+    /* Footer */
+    footer {
+      margin-top: 2.5rem;
+      text-align: center;
+      font-size: 12px;
+      color: var(--subtle);
+      line-height: 1.7;
+    }
+
+    @media (max-width: 480px) {
+      .panel { padding: 1.5rem; }
+      .otp-digit-box, .otp-input { width: 52px; height: 62px; font-size: 26px; }
+      .otp-digit-box { font-size: 28px; }
+    }
+  </style>
+</head>
+<body>
+<div class="page">
+  <header>
+    <div class="logo">
+      <div class="logo-icon">
+        <svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="color:#8b5cf6">
+          <path d="M3 5h12M3 9h12M3 13h7"/>
+          <circle cx="14" cy="13" r="2.5"/>
+          <path d="M14 10.5v0M14 15.5v0" stroke-width="1.5"/>
+        </svg>
+      </div>
+      <span class="logo-text">Clip<span>Drop</span></span>
+    </div>
+    <p>Upload any file and get a 4-digit code. Share the code to let anyone download it.</p>
+  </header>
+
+  <div class="card">
+    <div class="tabs">
+      <button class="tab active" onclick="switchTab('upload')" id="tab-upload">Upload</button>
+      <button class="tab" onclick="switchTab('retrieve')" id="tab-retrieve">Retrieve</button>
+    </div>
+
+    <!-- UPLOAD PANEL -->
+    <div class="panel active" id="panel-upload">
+      <div class="drop-zone" id="dropZone"
+        onclick="document.getElementById('fileInput').click()"
+        ondragover="onDragOver(event)"
+        ondragleave="onDragLeave(event)"
+        ondrop="onDrop(event)">
+        <div class="drop-icon">
+          <svg viewBox="0 0 22 22" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M11 14V4M7 8l4-4 4 4"/>
+            <path d="M3 16v1a2 2 0 002 2h12a2 2 0 002-2v-1"/>
+          </svg>
+        </div>
+        <p class="drop-label">Drop your file here</p>
+        <p class="drop-sub">or click to browse &mdash; up to 50 MB</p>
+      </div>
+      <input type="file" id="fileInput" onchange="onFileSelect(event)">
+
+      <div class="file-pill" id="filePill">
+        <div class="file-pill-icon">
+          <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
+            <rect x="2" y="1" width="10" height="12" rx="1.5"/>
+            <path d="M4 5h6M4 7.5h6M4 10h4"/>
+          </svg>
+        </div>
+        <span class="file-pill-name" id="pillName"></span>
+        <span class="file-pill-size" id="pillSize"></span>
+      </div>
+
+      <div class="progress-wrap" id="progressWrap">
+        <div class="progress-bar-bg"><div class="progress-bar-fill" id="progressFill"></div></div>
+        <div class="progress-label" id="progressLabel">Uploading...</div>
+      </div>
+
+      <div id="uploadMsg"></div>
+
+      <button class="btn primary" id="uploadBtn" onclick="doUpload()" disabled>Generate OTP</button>
+
+      <div class="otp-result" id="otpResult">
+        <div class="otp-result-inner">
+          <p class="otp-title">Your OTP code</p>
+          <div class="otp-code" id="otpCode"></div>
+          <p class="otp-expiry">Expires in <strong>24 hours</strong></p>
+          <button class="copy-btn" onclick="copyOTP()">Copy code</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- RETRIEVE PANEL -->
+    <div class="panel" id="panel-retrieve">
+      <p class="retrieve-label">Enter the 4-digit code to retrieve the uploaded file.</p>
+      <div class="otp-inputs">
+        <input class="otp-input" maxlength="1" id="r0" inputmode="numeric" autocomplete="one-time-code"
+          oninput="rMove(0)" onkeydown="rBack(event,0)" onpaste="rPaste(event)">
+        <input class="otp-input" maxlength="1" id="r1" inputmode="numeric"
+          oninput="rMove(1)" onkeydown="rBack(event,1)">
+        <input class="otp-input" maxlength="1" id="r2" inputmode="numeric"
+          oninput="rMove(2)" onkeydown="rBack(event,2)">
+        <input class="otp-input" maxlength="1" id="r3" inputmode="numeric"
+          oninput="rMove(3)" onkeydown="rBack(event,3)">
+      </div>
+
+      <div id="retrieveMsg"></div>
+
+      <button class="btn primary" onclick="doRetrieve()">Find File</button>
+
+      <div class="result-file" id="resultFile">
+        <div class="result-file-icon">
+          <svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
+            <rect x="2" y="1" width="14" height="16" rx="2"/>
+            <path d="M5 6h8M5 9.5h8M5 13h5"/>
+          </svg>
+        </div>
+        <div class="result-file-info">
+          <div class="result-file-name" id="resultName"></div>
+          <div class="result-file-size" id="resultSize"></div>
+        </div>
+        <button class="dl-btn" id="dlBtn" onclick="doDownload()">Download</button>
+      </div>
+    </div>
+  </div>
+
+  <footer>
+    Files are stored for 24 hours and then permanently deleted.<br>
+    Max file size: 50 MB.
+  </footer>
+</div>
+
+<script>
+  let selectedFile = null;
+  let currentOTP = null;
+  let retrievedOTP = null;
+
+  function switchTab(tab) {
+    ['upload','retrieve'].forEach(t => {
+      document.getElementById('tab-'+t).classList.toggle('active', t===tab);
+      document.getElementById('panel-'+t).classList.toggle('active', t===tab);
+    });
+  }
+
+  function onDragOver(e) { e.preventDefault(); document.getElementById('dropZone').classList.add('over'); }
+  function onDragLeave() { document.getElementById('dropZone').classList.remove('over'); }
+  function onDrop(e) {
+    e.preventDefault();
+    document.getElementById('dropZone').classList.remove('over');
+    if (e.dataTransfer.files[0]) setFile(e.dataTransfer.files[0]);
+  }
+  function onFileSelect(e) { if (e.target.files[0]) setFile(e.target.files[0]); }
+
+  function setFile(f) {
+    if (f.size > 50 * 1024 * 1024) {
+      showMsg('uploadMsg', 'error', 'File exceeds 50 MB limit.');
+      return;
+    }
+    selectedFile = f;
+    document.getElementById('pillName').textContent = f.name;
+    document.getElementById('pillSize').textContent = fmtSize(f.size);
+    document.getElementById('filePill').classList.add('show');
+    document.getElementById('uploadBtn').disabled = false;
+    document.getElementById('otpResult').classList.remove('show');
+    document.getElementById('uploadMsg').innerHTML = '';
+  }
+
+  function fmtSize(b) {
+    if (b < 1024) return b + ' B';
+    if (b < 1048576) return (b/1024).toFixed(1) + ' KB';
+    return (b/1048576).toFixed(2) + ' MB';
+  }
+
+  function showMsg(id, type, text) {
+    document.getElementById(id).innerHTML = `<div class="msg ${type}">${text}</div>`;
+  }
+
+  async function doUpload() {
+    if (!selectedFile) return;
+    const btn = document.getElementById('uploadBtn');
+    btn.disabled = true;
+    btn.textContent = 'Uploading...';
+    document.getElementById('uploadMsg').innerHTML = '';
+    document.getElementById('otpResult').classList.remove('show');
+
+    const pw = document.getElementById('progressWrap');
+    const pf = document.getElementById('progressFill');
+    const pl = document.getElementById('progressLabel');
+    pw.classList.add('show');
+
+    const fd = new FormData();
+    fd.append('file', selectedFile);
+
+    try {
+      const xhr = new XMLHttpRequest();
+      xhr.open('POST', '/api/upload');
+      xhr.upload.onprogress = (e) => {
+        if (e.lengthComputable) {
+          const pct = Math.round((e.loaded/e.total)*100);
+          pf.style.width = pct + '%';
+          pl.textContent = `Uploading... ${pct}%`;
+        }
+      };
+      xhr.onload = () => {
+        pw.classList.remove('show');
+        btn.disabled = false;
+        btn.textContent = 'Generate OTP';
+        if (xhr.status === 200) {
+          const data = JSON.parse(xhr.responseText);
+          currentOTP = data.otp;
+          showOTP(data.otp);
+        } else {
+          const err = JSON.parse(xhr.responseText);
+          showMsg('uploadMsg', 'error', err.error || 'Upload failed.');
+        }
+      };
+      xhr.onerror = () => {
+        pw.classList.remove('show');
+        btn.disabled = false;
+        btn.textContent = 'Generate OTP';
+        showMsg('uploadMsg', 'error', 'Network error. Is the server running?');
+      };
+      xhr.send(fd);
+    } catch(e) {
+      pw.classList.remove('show');
+      btn.disabled = false;
+      btn.textContent = 'Generate OTP';
+      showMsg('uploadMsg', 'error', 'Upload failed: ' + e.message);
+    }
+  }
+
+  function showOTP(otp) {
+    const container = document.getElementById('otpCode');
+    container.innerHTML = otp.split('').map((d,i) =>
+      `<div class="otp-digit-box" style="animation-delay:${i*0.06}s;opacity:0">${d}</div>`
+    ).join('');
+    // Trigger animation
+    setTimeout(() => {
+      container.querySelectorAll('.otp-digit-box').forEach(el => el.style.opacity = '');
+    }, 10);
+    document.getElementById('otpResult').classList.add('show');
+  }
+
+  function copyOTP() {
+    if (!currentOTP) return;
+    navigator.clipboard.writeText(currentOTP).then(() => {
+      const btn = document.querySelector('.copy-btn');
+      btn.textContent = 'Copied!';
+      setTimeout(() => btn.textContent = 'Copy code', 1500);
+    });
+  }
+
+  async function doRetrieve() {
+    const otp = [0,1,2,3].map(i => document.getElementById('r'+i).value).join('');
+    if (otp.length < 4 || !/^\d{4}$/.test(otp)) {
+      showMsg('retrieveMsg', 'error', 'Please enter a valid 4-digit code.');
+      return;
+    }
+    document.getElementById('retrieveMsg').innerHTML = '<div class="msg info">Looking up file...</div>';
+    document.getElementById('resultFile').classList.remove('show');
+
+    try {
+      const res = await fetch('/api/info/' + otp);
+      const data = await res.json();
+      if (!res.ok) {
+        showMsg('retrieveMsg', 'error', data.error || 'File not found.');
+        return;
+      }
+      retrievedOTP = otp;
+      document.getElementById('resultName').textContent = data.name;
+      document.getElementById('resultSize').textContent = fmtSize(data.size);
+      document.getElementById('resultFile').classList.add('show');
+      document.getElementById('retrieveMsg').innerHTML = '<div class="msg success">File found!</div>';
+    } catch(e) {
+      showMsg('retrieveMsg', 'error', 'Network error. Is the server running?');
+    }
+  }
+
+  function doDownload() {
+    if (!retrievedOTP) return;
+    window.location.href = '/api/download/' + retrievedOTP;
+  }
+
+  // OTP input navigation
+  function rMove(i) {
+    const el = document.getElementById('r'+i);
+    el.value = el.value.replace(/\D/g,'').slice(-1);
+    if (el.value && i < 3) document.getElementById('r'+(i+1)).focus();
+  }
+  function rBack(e, i) {
+    if (e.key==='Backspace' && !document.getElementById('r'+i).value && i > 0)
+      document.getElementById('r'+(i-1)).focus();
+    if (e.key==='Enter') doRetrieve();
+  }
+  function rPaste(e) {
+    e.preventDefault();
+    const text = (e.clipboardData||window.clipboardData).getData('text').replace(/\D/g,'').slice(0,4);
+    text.split('').forEach((c,i) => { const el = document.getElementById('r'+i); if(el) el.value=c; });
+    const last = Math.min(text.length, 3);
+    document.getElementById('r'+last).focus();
+  }
+</script>
+</body>
+</html>
