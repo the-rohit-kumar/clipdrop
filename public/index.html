@@ -112,7 +112,7 @@
     /* Tabs */
     .tabs {
       display: grid;
-      grid-template-columns: 1fr 1fr;
+      grid-template-columns: repeat(3, 1fr);
       border-bottom: 1px solid var(--border);
     }
     .tab {
@@ -430,6 +430,42 @@
       line-height: 1.7;
     }
 
+    /* Large file transfer panel (additive feature) */
+    .big-section-title {
+      font-family: var(--display);
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 14px;
+    }
+    .big-divider { height: 1px; background: var(--border); margin: 2rem 0 1.5rem; }
+    #bigCodeBox .otp-digit-box { width: 44px; height: 56px; font-size: 24px; }
+    .big-code-input {
+      width: 100%;
+      padding: 15px 16px;
+      text-align: center;
+      font-family: var(--mono);
+      font-size: 22px;
+      letter-spacing: 0.3em;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      color: var(--text);
+      outline: none;
+      caret-color: var(--accent);
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
+    .big-code-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-glow); }
+    .big-code-input::placeholder { color: var(--subtle); }
+    .big-hint { font-size: 12px; color: var(--muted); line-height: 1.6; margin-top: 16px; }
+
+    @media (max-width: 480px) {
+      .tab { padding: 14px 6px; font-size: 13px; }
+      #bigCodeBox .otp-digit-box { width: 36px; height: 48px; font-size: 20px; }
+    }
+
     @media (max-width: 480px) {
       .panel { padding: 1.5rem; }
       .otp-digit-box, .otp-input { width: 52px; height: 62px; font-size: 26px; }
@@ -457,6 +493,7 @@
     <div class="tabs">
       <button class="tab active" onclick="switchTab('upload')" id="tab-upload">Upload</button>
       <button class="tab" onclick="switchTab('retrieve')" id="tab-retrieve">Retrieve</button>
+      <button class="tab" onclick="switchTab('big')" id="tab-big">Large file</button>
     </div>
 
     <!-- UPLOAD PANEL -->
@@ -539,6 +576,83 @@
         <button class="dl-btn" id="dlBtn" onclick="doDownload()">Download</button>
       </div>
     </div>
+
+    <!-- LARGE FILE PANEL (separate feature: own endpoints, 6-digit codes) -->
+    <div class="panel" id="panel-big">
+      <p class="big-section-title">Send a large file</p>
+
+      <div class="drop-zone" id="bigDropZone"
+        onclick="document.getElementById('bigFileInput').click()"
+        ondragover="bigOnDragOver(event)"
+        ondragleave="bigOnDragLeave()"
+        ondrop="bigOnDrop(event)">
+        <div class="drop-icon">
+          <svg viewBox="0 0 22 22" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M11 14V4M7 8l4-4 4 4"/>
+            <path d="M3 16v1a2 2 0 002 2h12a2 2 0 002-2v-1"/>
+          </svg>
+        </div>
+        <p class="drop-label">Drop a large file here</p>
+        <p class="drop-sub" id="bigDropSub">or click to browse</p>
+      </div>
+      <input type="file" id="bigFileInput" onchange="bigOnFileSelect(event)">
+
+      <div class="file-pill" id="bigFilePill">
+        <div class="file-pill-icon">
+          <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
+            <rect x="2" y="1" width="10" height="12" rx="1.5"/>
+            <path d="M4 5h6M4 7.5h6M4 10h4"/>
+          </svg>
+        </div>
+        <span class="file-pill-name" id="bigPillName"></span>
+        <span class="file-pill-size" id="bigPillSize"></span>
+      </div>
+
+      <div class="progress-wrap" id="bigProgressWrap">
+        <div class="progress-bar-bg"><div class="progress-bar-fill" id="bigProgressFill"></div></div>
+        <div class="progress-label" id="bigProgressLabel">Uploading...</div>
+      </div>
+
+      <div id="bigMsg"></div>
+
+      <button class="btn primary" id="bigUploadBtn" onclick="bigDoUpload()" disabled>Generate code</button>
+
+      <div class="otp-result" id="bigCodeResult">
+        <div class="otp-result-inner">
+          <p class="otp-title">Your 6-digit code</p>
+          <div class="otp-code" id="bigCodeBox"></div>
+          <p class="otp-expiry">Expires in <strong>24 hours</strong></p>
+          <button class="copy-btn" onclick="bigCopyCode()">Copy code</button>
+        </div>
+      </div>
+
+      <div class="big-divider"></div>
+
+      <p class="big-section-title">Receive a large file</p>
+      <input class="big-code-input" id="bigCodeInput" inputmode="numeric" maxlength="6"
+        placeholder="000000" autocomplete="one-time-code"
+        oninput="bigCodeChanged()" onkeydown="bigCodeKey(event)">
+      <div id="bigRetrieveMsg"></div>
+      <button class="btn primary" onclick="bigDoRetrieve()">Find file</button>
+
+      <div class="result-file" id="bigResultFile">
+        <div class="result-file-icon">
+          <svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
+            <rect x="2" y="1" width="14" height="16" rx="2"/>
+            <path d="M5 6h8M5 9.5h8M5 13h5"/>
+          </svg>
+        </div>
+        <div class="result-file-info">
+          <div class="result-file-name" id="bigResultName"></div>
+          <div class="result-file-size" id="bigResultSize"></div>
+        </div>
+        <button class="dl-btn" id="bigDlBtn" onclick="bigDoDownload()">Download</button>
+      </div>
+
+      <p class="big-hint" id="bigHint">
+        Large transfers use a separate 6-digit code and are deleted after 24 hours.
+      </p>
+    </div>
   </div>
 
   <footer>
@@ -553,7 +667,7 @@
   let retrievedOTP = null;
 
   function switchTab(tab) {
-    ['upload','retrieve'].forEach(t => {
+    ['upload','retrieve','big'].forEach(t => {
       document.getElementById('tab-'+t).classList.toggle('active', t===tab);
       document.getElementById('panel-'+t).classList.toggle('active', t===tab);
     });
@@ -716,6 +830,182 @@
     const last = Math.min(text.length, 3);
     document.getElementById('r'+last).focus();
   }
+
+  /* ==========================================================================
+     LARGE FILE TRANSFER — self-contained feature. It uses its own endpoints,
+     its own 6-digit codes and its own DOM ids, so none of the ClipDrop code
+     above is touched.
+     ========================================================================== */
+  let bigMaxBytes = 0;
+  let bigMaxLabel = '20 GB';
+  let bigFile = null;
+  let bigCurrentCode = null;
+  let bigRetrievedCode = null;
+
+  function bigFmtSize(b) {
+    if (b < 1024) return b + ' B';
+    if (b < 1048576) return (b / 1024).toFixed(1) + ' KB';
+    if (b < 1073741824) return (b / 1048576).toFixed(2) + ' MB';
+    return (b / 1073741824).toFixed(2) + ' GB';
+  }
+
+  function bigApplyLimit(bytes, label) {
+    bigMaxBytes = bytes;
+    bigMaxLabel = label;
+    document.getElementById('bigDropSub').textContent = 'or click to browse — up to ' + label;
+    document.getElementById('bigHint').textContent =
+      'Up to ' + label + ' per file. Both laptops must be on the same Wi-Fi; the receiving ' +
+      'laptop only needs this page open in a browser. Files are deleted after 24 hours.';
+  }
+
+  fetch('/api/big/config')
+    .then(r => r.json())
+    .then(cfg => bigApplyLimit(cfg.maxFileBytes, cfg.maxFileLabel))
+    .catch(() => {
+      document.getElementById('bigHint').textContent =
+        'Large-file transfer is unavailable on this server.';
+    });
+
+  function bigParse(text) {
+    try { return JSON.parse(text); } catch (e) { return null; }
+  }
+
+  function bigOnDragOver(e) { e.preventDefault(); document.getElementById('bigDropZone').classList.add('over'); }
+  function bigOnDragLeave() { document.getElementById('bigDropZone').classList.remove('over'); }
+  function bigOnDrop(e) {
+    e.preventDefault();
+    document.getElementById('bigDropZone').classList.remove('over');
+    if (e.dataTransfer.files[0]) bigSetFile(e.dataTransfer.files[0]);
+  }
+  function bigOnFileSelect(e) { if (e.target.files[0]) bigSetFile(e.target.files[0]); }
+
+  function bigSetFile(f) {
+    if (bigMaxBytes && f.size > bigMaxBytes) {
+      bigFile = null;
+      document.getElementById('bigUploadBtn').disabled = true;
+      document.getElementById('bigFilePill').classList.remove('show');
+      showMsg('bigMsg', 'error', 'File is ' + bigFmtSize(f.size) + ' — larger than the ' + bigMaxLabel + ' limit.');
+      return;
+    }
+    bigFile = f;
+    document.getElementById('bigPillName').textContent = f.name;
+    document.getElementById('bigPillSize').textContent = bigFmtSize(f.size);
+    document.getElementById('bigFilePill').classList.add('show');
+    document.getElementById('bigUploadBtn').disabled = false;
+    document.getElementById('bigCodeResult').classList.remove('show');
+    document.getElementById('bigMsg').innerHTML = '';
+  }
+
+  function bigDoUpload() {
+    if (!bigFile) return;
+    const btn = document.getElementById('bigUploadBtn');
+    btn.disabled = true;
+    btn.textContent = 'Uploading...';
+    document.getElementById('bigMsg').innerHTML = '';
+    document.getElementById('bigCodeResult').classList.remove('show');
+
+    const pw = document.getElementById('bigProgressWrap');
+    const pf = document.getElementById('bigProgressFill');
+    const pl = document.getElementById('bigProgressLabel');
+    pw.classList.add('show');
+
+    const reset = () => {
+      pw.classList.remove('show');
+      btn.disabled = false;
+      btn.textContent = 'Generate code';
+    };
+
+    const fd = new FormData();
+    fd.append('file', bigFile);
+
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', '/api/big/upload');
+    xhr.upload.onprogress = (e) => {
+      if (!e.lengthComputable) return;
+      const pct = Math.round((e.loaded / e.total) * 100);
+      pf.style.width = pct + '%';
+      pl.textContent = 'Uploading... ' + pct + '% (' + bigFmtSize(e.loaded) + ' of ' + bigFmtSize(e.total) + ')';
+    };
+    xhr.onload = () => {
+      reset();
+      const data = bigParse(xhr.responseText);
+      if (xhr.status === 200 && data && data.code) {
+        bigCurrentCode = data.code;
+        bigShowCode(data.code);
+        showMsg('bigMsg', 'success', 'Stored ' + bigFmtSize(bigFile.size) + ' on the sending laptop.');
+      } else {
+        showMsg('bigMsg', 'error', (data && data.error) || 'Upload failed (HTTP ' + xhr.status + ').');
+      }
+    };
+    xhr.onerror = () => { reset(); showMsg('bigMsg', 'error', 'Network error. Is the server still running?'); };
+    xhr.onabort = () => { reset(); showMsg('bigMsg', 'error', 'Upload cancelled.'); };
+    xhr.send(fd);
+  }
+
+  function bigShowCode(code) {
+    const container = document.getElementById('bigCodeBox');
+    container.innerHTML = code.split('').map((d, i) =>
+      `<div class="otp-digit-box" style="animation-delay:${i * 0.06}s;opacity:0">${d}</div>`
+    ).join('');
+    setTimeout(() => {
+      container.querySelectorAll('.otp-digit-box').forEach(el => el.style.opacity = '');
+    }, 10);
+    document.getElementById('bigCodeResult').classList.add('show');
+  }
+
+  function bigCopyCode() {
+    if (!bigCurrentCode) return;
+    navigator.clipboard.writeText(bigCurrentCode).then(() => {
+      const btn = document.querySelector('#bigCodeResult .copy-btn');
+      if (!btn) return;
+      btn.textContent = 'Copied!';
+      setTimeout(() => { btn.textContent = 'Copy code'; }, 1500);
+    });
+  }
+
+  function bigCodeValue() {
+    return document.getElementById('bigCodeInput').value.replace(/\D/g, '').slice(0, 6);
+  }
+  function bigCodeChanged() {
+    const el = document.getElementById('bigCodeInput');
+    el.value = el.value.replace(/\D/g, '').slice(0, 6);
+    document.getElementById('bigResultFile').classList.remove('show');
+  }
+  function bigCodeKey(e) { if (e.key === 'Enter') bigDoRetrieve(); }
+
+  async function bigDoRetrieve() {
+    const code = bigCodeValue();
+    if (!/^\d{6}$/.test(code)) {
+      showMsg('bigRetrieveMsg', 'error', 'Please enter the 6-digit code.');
+      return;
+    }
+    showMsg('bigRetrieveMsg', 'info', 'Looking up file...');
+    document.getElementById('bigResultFile').classList.remove('show');
+
+    try {
+      const res = await fetch('/api/big/info/' + code);
+      const data = bigParse(await res.text()) || {};
+      if (!res.ok) {
+        showMsg('bigRetrieveMsg', 'error', data.error || 'File not found.');
+        return;
+      }
+      bigRetrievedCode = code;
+      document.getElementById('bigResultName').textContent = data.name;
+      document.getElementById('bigResultSize').textContent = bigFmtSize(data.size);
+      document.getElementById('bigResultFile').classList.add('show');
+      showMsg('bigRetrieveMsg', 'success', 'File found — ' + bigFmtSize(data.size) + '. The download streams straight to this laptop.');
+    } catch (e) {
+      showMsg('bigRetrieveMsg', 'error', 'Network error. Is the server running?');
+    }
+  }
+
+  function bigDoDownload() {
+    if (!bigRetrievedCode) return;
+    window.location.href = '/api/big/download/' + bigRetrievedCode;
+  }
+
+
+
 </script>
 </body>
 </html>

@@ -1,0 +1,2 @@
+# Large file transfer staging folder (multi-GB payloads — never commit these)
+uploads/big/
